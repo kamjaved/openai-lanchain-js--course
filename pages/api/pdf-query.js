@@ -22,27 +22,35 @@ export default async function handler(req, res) {
 
 		console.log('input received:', input);
 
+		/* Use as part of a chain (currently no metadata filters) */
+
+		// Initialize Pinecone
+
 		const client = new PineconeClient();
 		await client.init({
 			apiKey: process.env.PINECONE_API_KEY,
 			environment: process.env.PINECONE_ENVIRONMENT,
 		});
+
 		const pineconeIndex = client.Index(process.env.PINECONE_INDEX);
+
+		// Search!
 
 		const vectorStore = await PineconeStore.fromExistingIndex(
 			new OpenAIEmbeddings(),
 			{ pineconeIndex }
 		);
 
-		const model = new OpenAI();
-		const chain = VectorDBQAChain.fromLLM(model, vectorStore, {
-			k: 1, // it give 1st relevant tresult
-			returnSourceDocuments: true, // gives pdf source page number
+		const modal = new OpenAI();
+
+		const chain = VectorDBQAChain.fromLLM(modal, vectorStore, {
+			k: 1, // it returns the first most relevant result
+			returnSourceDocuments: true,
 		});
+
 		const response = await chain.call({ query: input });
 
-		console.log(response);
-
+		console.log({ response });
 		return res.status(200).json({ result: response });
 	} catch (error) {
 		console.error(error);

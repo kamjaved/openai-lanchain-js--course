@@ -4,50 +4,51 @@ import { Document } from 'langchain/document';
 import { OpenAIEmbeddings } from 'langchain/embeddings/openai';
 import { PineconeStore } from 'langchain/vectorstores/pinecone';
 import { CharacterTextSplitter } from 'langchain/text_splitter';
+import multer from 'multer';
 
-// Example: https://js.langchain.com/docs/modules/indexes/document_loaders/examples/file_loaders/pd
+// Example: https://js.langchain.com/docs/modules/indexes/document_loaders/examples/file_loaders/pdf
 export default async function handler(req, res) {
-	if (req.method === 'GET') {
+	if (req.method === 'POST') {
+		const upload = multer({ storage: multer.memoryStorage() });
+		const blob = upload.single(req.body);
 		console.log('Inside the PDF handler');
-		console.log('Uploading book');
 
 		/** STEP ONE: LOAD DOCUMENT */
-		const bookPath =
-			'/home/kamran/WORK/LANGCHAIN AND GENRATIVE AI/openai-javascript-course-1-start-here/data/resumes/resume_kaito_esquivel.pdf';
-
-		const loader = new PDFLoader(bookPath);
-
+		const loader = new PDFLoader(blob);
 		const docs = await loader.load();
 
+		console.log({ docs });
+
 		if (docs.length === 0) {
-			console.log('No documents found.');
+			console.log('No Docs Found');
 			return;
 		}
 
-		// split pdf into CHUNKS
-
+		// Chunk it
 		const splitter = new CharacterTextSplitter({
-			separator: ' ',
-			chunkSize: 250,
-			chunkOverlap: 10,
+			separator: ' ', // separator is space for other sometime we use comma
+			chunkSize: 250, // chunks size 250 charcater
+			chunkOverlap: 10, // overlap word from prev chunks for referance & make search easier
 		});
 
 		const splitDocs = await splitter.splitDocuments(docs);
 
-		// Reduce the size of the metadata for each document -- lots of useless pdf information
+		console.log({ splitDocs });
+
+		// Reduce the size of the metadata
 		const reducedDocs = splitDocs.map((doc) => {
 			const reducedMetadata = { ...doc.metadata };
-			delete reducedMetadata.pdf; // Remove the 'pdf' field
+			delete reducedMetadata.pdf;
 			return new Document({
 				pageContent: doc.pageContent,
 				metadata: reducedMetadata,
 			});
 		});
 
+		console.log({ reducedDocs });
+
 		/** STEP TWO: UPLOAD TO DATABASE */
-
 		const client = new PineconeClient();
-
 		await client.init({
 			apiKey: process.env.PINECONE_API_KEY,
 			environment: process.env.PINECONE_ENVIRONMENT,
@@ -55,12 +56,13 @@ export default async function handler(req, res) {
 
 		const pineconeIndex = client.Index(process.env.PINECONE_INDEX);
 
-		await PineconeStore.fromDocuments(reducedDocs, new OpenAIEmbeddings(), {
-			pineconeIndex,
-		});
+		// upload documents to Pinecone
 
-		console.log('Successfully uploaded to DB');
+		// await PineconeStore.fromDocuments(reducedDocs, new OpenAIEmbeddings(), {
+		// 	pineconeIndex,
+		// });
 
+		console.log('Successfully uploaded to Database');
 		return res.status(200).json({ result: docs });
 	} else {
 		res.status(405).json({ message: 'Method not allowed' });

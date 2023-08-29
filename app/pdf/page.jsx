@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import ResultWithSources from '../components/ResultWithSources';
 import PromptBox from '../components/PromptBox';
+import UploadButton from '../components/UploadButton';
 import Button from '../components/Button';
 import PageHeader from '../components/PageHeader';
 import Title from '../components/Title';
@@ -14,12 +15,15 @@ import '../globals.css';
 const PDFLoader = () => {
 	// Managing prompt, messages, and error states with useState
 	const [prompt, setPrompt] = useState('How to get rich?');
+	const [selectedFile, setSelectedFile] = useState();
+	const [isFilePicked, setIsFilePicked] = useState(false);
 	const [messages, setMessages] = useState([
 		{
 			text: "Hi, I'm a Naval AI. What would you like to know?",
 			type: 'bot',
 		},
 	]);
+
 	const [error, setError] = useState('');
 
 	// This function updates the prompt value when the user types in the prompt box
@@ -29,19 +33,34 @@ const PDFLoader = () => {
 
 	// This function handles the submission of the form when the user hits 'Enter' or 'Submit'
 	// It sends a GET request to the provided endpoint with the current prompt as the query
-	const handleSubmit = async (endpoint) => {
+
+	const changeHandler = (event) => {
+		setSelectedFile(event.target.files[0]);
+		setIsFilePicked(true);
+	};
+
+	console.log({ selectedFile });
+
+	const handleSubmitBook = async (endpoint) => {
 		try {
 			console.log(`sending ${prompt}`);
 			console.log(`using ${endpoint}`);
 
+			const formData = new FormData();
+			formData.append('file', selectedFile);
+
+			console.log({ formData });
+
 			// A GET request is sent to the backend
 			const response = await fetch(`/api/${endpoint}`, {
-				method: 'GET',
+				method: 'POST',
+				body: formData,
 			});
 
 			// The response from the backend is parsed as JSON
 			const searchRes = await response.json();
-			console.log(searchRes);
+			console.log({ searchRes });
+
 			setError(''); // Clear any existing error messages
 		} catch (error) {
 			console.log(error);
@@ -113,17 +132,15 @@ const PDFLoader = () => {
             get started!"
 						/>
 						<ButtonContainer>
-							{/* <Button
-                handleSubmit={()=>{handleSubmit('pdfupload-book')}}
-                endpoint="pdfuploadtest"
-                buttonText="Upload Test Data ☁️"
-                className="Button"
-              /> */}
-							<Button
-								handleSubmit={handleSubmit}
+							<UploadButton
+								changeHandler={changeHandler}
+								handleSubmit={handleSubmitBook}
 								endpoint="pdf-upload"
-								buttonText="Upload Book 📚"
-								className="Button"
+								buttonText={
+									isFilePicked
+										? selectedFile.name.slice(0, 10) + '...'
+										: 'Select PDF 📚'
+								}
 							/>
 						</ButtonContainer>
 					</>
@@ -135,7 +152,6 @@ const PDFLoader = () => {
 							prompt={prompt}
 							handlePromptChange={handlePromptChange}
 							handleSubmit={() => handleSubmitPrompt('/pdf-query')}
-							// handleSubmit={() => handleSubmitQuery("/pdfquery-agent")}
 							placeHolderText={'How to get rich?'}
 							error={error}
 						/>
